@@ -27,6 +27,7 @@ def GetIncludeDir():
         # print(str(path))
         return (path)
 
+
 class ModelNotebook:
     def __init__(self, nb : nbf.NotebookNode = None, node_type='model'):
         
@@ -62,7 +63,12 @@ class ModelNotebook:
                 x = 1
                 for sql in self.sql:
                     # Create a new code cell
-                    new_cell = nbf.v4.new_code_cell(source="sql = '''" + sql + "'''\n" + "spark.sql(sql)")
+                    cell_sql = """
+sql = '''""" + sql + "'''\n" + """
+for s in sql.split(';\\n'):
+    spark.sql(s)
+"""                
+                    new_cell = nbf.v4.new_code_cell(source=cell_sql)
                     # Insert the new cell into the middle of the notebook
                     self.nb.cells.insert((i + x), new_cell)
                     x += 1
