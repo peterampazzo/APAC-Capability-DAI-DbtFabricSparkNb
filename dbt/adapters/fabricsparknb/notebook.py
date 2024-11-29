@@ -27,6 +27,7 @@ def GetIncludeDir():
         # print(str(path))
         return (path)
 
+
 class ModelNotebook:
     def __init__(self, nb : nbf.NotebookNode = None, node_type='model'):
         
@@ -62,11 +63,40 @@ class ModelNotebook:
                 x = 1
                 for sql in self.sql:
                     # Create a new code cell
-                    new_cell = nbf.v4.new_code_cell(source="sql = '''" + sql + "'''\n" + "spark.sql(sql)")
+                    cell_sql = """
+sql = '''""" + sql + "'''\n" + """
+for s in sql.split(';\\n'):
+    spark.sql(s)
+"""                
+                    new_cell = nbf.v4.new_code_cell(source=cell_sql)
                     # Insert the new cell into the middle of the notebook
                     self.nb.cells.insert((i + x), new_cell)
                     x += 1
                 break
+
+    def SetThePythonPreScript(self, project_root, file_name, lakehouse_name):
+        python_models_dir = Path(project_root) / Path('models_python')
+        # print(python_models_dir)
+        # print(file_name)
+        # If the path does not exist, create it
+        if not os.path.exists(python_models_dir):
+            os.makedirs(python_models_dir)
+        
+        # Remove the .sql extension and replace it with .py
+        file_name = file_name.replace(".ipynb", ".py")
+
+        # Check if a matching file exists in the models_python directory
+        if os.path.exists(python_models_dir / Path(file_name)):
+            data = ""
+            # Read the file
+            with io.open(python_models_dir / Path(file_name), 'r') as file:
+                data = file.read()
+            data = re.sub(r"\{\{\s*lakehouse_name\s*\}\}", lakehouse_name, data)
+            for i, cell in enumerate(self.nb.cells):
+                if cell.cell_type == 'markdown' and "# Pre-Execution Python Script" in cell.source:
+                    new_cell = nbf.v4.new_code_cell(source=data)
+                    self.nb.cells.insert((i + 1), new_cell)
+                    break
 
     def GetSparkSqlCells(self):
         # Get the existing SQL Cell from the notebook. It will be the code cell following the markdown cell containing "# SPARK SQL Cell for Debugging"
